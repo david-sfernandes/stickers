@@ -53,7 +53,8 @@ class StickerPackLoader {
             throw new IllegalStateException("could not fetch from content provider, " + BuildConfig.CONTENT_PROVIDER_AUTHORITY);
         }
         HashSet<String> identifierSet = new HashSet<>();
-        final ArrayList<StickerPack> stickerPackList = fetchFromContentProvider(cursor);
+        final ArrayList<StickerPack> stickerPackList = fetchFromContentProvider(cursor, context);
+        cursor.close();
         for (StickerPack stickerPack : stickerPackList) {
             if (identifierSet.contains(stickerPack.identifier)) {
                 throw new IllegalStateException("sticker pack identifiers should be unique, there are more than one pack with identifier:" + stickerPack.identifier);
@@ -61,13 +62,9 @@ class StickerPackLoader {
                 identifierSet.add(stickerPack.identifier);
             }
         }
-        if (stickerPackList.isEmpty()) {
-            throw new IllegalStateException("There should be at least one sticker pack in the app");
-        }
         for (StickerPack stickerPack : stickerPackList) {
             final List<Sticker> stickers = getStickersForPack(context, stickerPack);
             stickerPack.setStickers(stickers);
-            StickerPackValidator.verifyStickerPackValidity(context, stickerPack);
         }
         return stickerPackList;
     }
@@ -92,9 +89,11 @@ class StickerPackLoader {
 
 
     @NonNull
-    private static ArrayList<StickerPack> fetchFromContentProvider(Cursor cursor) {
+    private static ArrayList<StickerPack> fetchFromContentProvider(Cursor cursor, Context context) {
         ArrayList<StickerPack> stickerPackList = new ArrayList<>();
-        cursor.moveToFirst();
+        if (!cursor.moveToFirst()) {
+            return stickerPackList;
+        }
         do {
             final String identifier = cursor.getString(cursor.getColumnIndexOrThrow(STICKER_PACK_IDENTIFIER_IN_QUERY));
             final String name = cursor.getString(cursor.getColumnIndexOrThrow(STICKER_PACK_NAME_IN_QUERY));
@@ -110,6 +109,7 @@ class StickerPackLoader {
             final boolean avoidCache = cursor.getShort(cursor.getColumnIndexOrThrow(AVOID_CACHE)) > 0;
             final boolean animatedStickerPack = cursor.getShort(cursor.getColumnIndexOrThrow(ANIMATED_STICKER_PACK)) > 0;
             final StickerPack stickerPack = new StickerPack(identifier, name, publisher, trayImage, publisherEmail, publisherWebsite, privacyPolicyWebsite, licenseAgreementWebsite, imageDataVersion, avoidCache, animatedStickerPack);
+            stickerPack.setCustomPack(UserStickerPackStore.isCustomPack(context, identifier));
             stickerPack.setAndroidPlayStoreLink(androidPlayStoreLink);
             stickerPack.setIosAppStoreLink(iosAppLink);
             stickerPackList.add(stickerPack);

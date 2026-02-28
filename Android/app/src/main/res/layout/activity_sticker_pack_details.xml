@@ -143,6 +143,30 @@
             android:orientation="vertical">
 
             <FrameLayout
+                android:id="@+id/add_sticker_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/btn_green"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackgroundBorderless"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/StickerPreviewButtonText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:background="@android:color/transparent"
+                    android:clickable="false"
+                    android:focusable="false"
+                    android:foreground="@android:color/transparent"
+                    android:text="@string/add_sticker_to_pack" />
+
+            </FrameLayout>
+
+            <FrameLayout
                 android:id="@+id/add_to_whatsapp_button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

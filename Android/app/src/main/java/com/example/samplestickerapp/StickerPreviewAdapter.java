@@ -26,13 +26,14 @@ public class StickerPreviewAdapter extends RecyclerView.Adapter<StickerPreviewVi
     private static final float EXPANDED_STICKER_PREVIEW_BACKGROUND_ALPHA = 0.2f;
 
     @NonNull
-    private final StickerPack stickerPack;
+    private StickerPack stickerPack;
 
     private final int cellSize;
     private final int cellLimit;
     private final int cellPadding;
     private final int errorResource;
     private final SimpleDraweeView expandedStickerPreview;
+    private final OnStickerLongPressListener onStickerLongPressListener;
 
     private final LayoutInflater layoutInflater;
     private RecyclerView recyclerView;
@@ -46,7 +47,8 @@ public class StickerPreviewAdapter extends RecyclerView.Adapter<StickerPreviewVi
             final int cellSize,
             final int cellPadding,
             @NonNull final StickerPack stickerPack,
-            final SimpleDraweeView expandedStickerView) {
+            final SimpleDraweeView expandedStickerView,
+            final OnStickerLongPressListener onStickerLongPressListener) {
         this.cellSize = cellSize;
         this.cellPadding = cellPadding;
         this.cellLimit = 0;
@@ -54,6 +56,11 @@ public class StickerPreviewAdapter extends RecyclerView.Adapter<StickerPreviewVi
         this.errorResource = errorResource;
         this.stickerPack = stickerPack;
         this.expandedStickerPreview = expandedStickerView;
+        this.onStickerLongPressListener = onStickerLongPressListener;
+    }
+
+    void setStickerPack(@NonNull StickerPack stickerPack) {
+        this.stickerPack = stickerPack;
     }
 
     @NonNull
@@ -76,6 +83,13 @@ public class StickerPreviewAdapter extends RecyclerView.Adapter<StickerPreviewVi
         stickerPreviewViewHolder.stickerPreviewView.setImageResource(errorResource);
         stickerPreviewViewHolder.stickerPreviewView.setImageURI(StickerPackLoader.getStickerAssetUri(stickerPack.identifier, stickerPack.getStickers().get(i).imageFileName));
         stickerPreviewViewHolder.stickerPreviewView.setOnClickListener(v -> expandPreview(i, stickerPreviewViewHolder.stickerPreviewView));
+        stickerPreviewViewHolder.stickerPreviewView.setOnLongClickListener(v -> {
+            if (onStickerLongPressListener == null || !stickerPack.isCustomPack()) {
+                return false;
+            }
+            onStickerLongPressListener.onStickerLongPress(stickerPack.getStickers().get(i));
+            return true;
+        });
     }
 
     @Override
@@ -204,5 +218,9 @@ public class StickerPreviewAdapter extends RecyclerView.Adapter<StickerPreviewVi
             return Math.min(numberOfPreviewImagesInPack, cellLimit);
         }
         return numberOfPreviewImagesInPack;
+    }
+
+    interface OnStickerLongPressListener {
+        void onStickerLongPress(@NonNull Sticker sticker);
     }
 }

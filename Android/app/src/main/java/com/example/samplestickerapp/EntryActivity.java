@@ -41,20 +41,11 @@ public class EntryActivity extends BaseActivity {
 
     private void showStickerPack(ArrayList<StickerPack> stickerPackList) {
         progressBar.setVisibility(View.GONE);
-        if (stickerPackList.size() > 1) {
-            final Intent intent = new Intent(this, StickerPackListActivity.class);
-            intent.putParcelableArrayListExtra(StickerPackListActivity.EXTRA_STICKER_PACK_LIST_DATA, stickerPackList);
-            startActivity(intent);
-            finish();
-            overridePendingTransition(0, 0);
-        } else {
-            final Intent intent = new Intent(this, StickerPackDetailsActivity.class);
-            intent.putExtra(StickerPackDetailsActivity.EXTRA_SHOW_UP_BUTTON, false);
-            intent.putExtra(StickerPackDetailsActivity.EXTRA_STICKER_PACK_DATA, stickerPackList.get(0));
-            startActivity(intent);
-            finish();
-            overridePendingTransition(0, 0);
-        }
+        final Intent intent = new Intent(this, StickerPackListActivity.class);
+        intent.putParcelableArrayListExtra(StickerPackListActivity.EXTRA_STICKER_PACK_LIST_DATA, stickerPackList);
+        startActivity(intent);
+        finish();
+        overridePendingTransition(0, 0);
     }
 
     private void showErrorMessage(String errorMessage) {
@@ -86,12 +77,6 @@ public class EntryActivity extends BaseActivity {
                 final Context context = contextWeakReference.get();
                 if (context != null) {
                     stickerPackList = StickerPackLoader.fetchStickerPacks(context);
-                    if (stickerPackList.size() == 0) {
-                        return new Pair<>("could not find any packs", null);
-                    }
-                    for (StickerPack stickerPack : stickerPackList) {
-                        StickerPackValidator.verifyStickerPackValidity(context, stickerPack);
-                    }
                     return new Pair<>(null, stickerPackList);
                 } else {
                     return new Pair<>("could not fetch sticker packs", null);

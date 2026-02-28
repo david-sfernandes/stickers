@@ -6,4 +6,8 @@
         android:icon="@drawable/sticker_3rdparty_info"
         android:title="@string/more_info_button"
         app:showAsAction="always" />
+    <item
+        android:id="@+id/action_delete_pack"
+        android:title="@string/delete_pack_title"
+        app:showAsAction="never" />
 </menu>

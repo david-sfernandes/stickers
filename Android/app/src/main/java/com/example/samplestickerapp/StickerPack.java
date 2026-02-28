@@ -31,6 +31,7 @@ class StickerPack implements Parcelable {
     private long totalSize;
     String androidPlayStoreLink;
     private boolean isWhitelisted;
+    private boolean customPack;
 
     StickerPack(String identifier, String name, String publisher, String trayImageFile, String publisherEmail, String publisherWebsite, String privacyPolicyWebsite, String licenseAgreementWebsite, String imageDataVersion, boolean avoidCache, boolean animatedStickerPack) {
         this.identifier = identifier;
@@ -54,6 +55,14 @@ class StickerPack implements Parcelable {
         return isWhitelisted;
     }
 
+    void setCustomPack(boolean customPack) {
+        this.customPack = customPack;
+    }
+
+    boolean isCustomPack() {
+        return customPack;
+    }
+
     private StickerPack(Parcel in) {
         identifier = in.readString();
         name = in.readString();
@@ -71,6 +80,7 @@ class StickerPack implements Parcelable {
         imageDataVersion = in.readString();
         avoidCache = in.readByte() != 0;
         animatedStickerPack = in.readByte() != 0;
+        customPack = in.readByte() != 0;
     }
 
     public static final Creator<StickerPack> CREATOR = new Creator<StickerPack>() {
@@ -132,5 +142,6 @@ class StickerPack implements Parcelable {
         dest.writeString(imageDataVersion);
         dest.writeByte((byte) (avoidCache ? 1 : 0));
         dest.writeByte((byte) (animatedStickerPack ? 1 : 0));
+        dest.writeByte((byte) (customPack ? 1 : 0));
     }
 }

@@ -42,4 +42,22 @@
     <string name="sticker_pack_animation_indicator" tools:ignore="MissingTranslation">Animated sticker pack</string>
     <!-- text we display at the end of sticker pack details page showing that users can tap sticker to see bigger version -->
     <string name="sticker_pack_details_tap_to_preview" tools:ignore="MissingTranslation">Tap to preview sticker</string>
+    <string name="add_sticker_to_pack">Add sticker to pack</string>
+    <string name="create_pack_title">Create pack</string>
+    <string name="create_pack_confirm">Create</string>
+    <string name="create_pack_validation">Fill pack name and publisher.</string>
+    <string name="create_pack_success">Pack created.</string>
+    <string name="create_pack_error">Could not create pack: %1$s</string>
+    <string name="pack_name_hint">Pack name</string>
+    <string name="pack_publisher_hint">Publisher</string>
+    <string name="pack_not_found_error">Sticker pack not found.</string>
+    <string name="generic_validation_error">Unable to validate this pack.</string>
+    <string name="image_picker_not_available">Could not open image picker.</string>
+    <string name="delete_pack_title">Delete pack</string>
+    <string name="delete_pack_message">This will permanently remove the pack and all stickers in it.</string>
+    <string name="delete_pack_confirm">Delete</string>
+    <string name="delete_pack_not_found">Pack was not found.</string>
+    <string name="remove_sticker_title">Remove sticker</string>
+    <string name="remove_sticker_message">Do you want to remove this sticker from the pack?</string>
+    <string name="remove_sticker_confirm">Remove</string>
 </resources>

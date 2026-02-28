@@ -22,12 +22,19 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
 
+import java.util.ArrayList;
+
 public abstract class AddStickerPackActivity extends BaseActivity {
     private static final int ADD_PACK = 200;
     private static final String TAG = "AddStickerPackActivity";
 
     protected void addStickerPackToWhatsApp(String identifier, String stickerPackName) {
         try {
+            final String validationError = validatePackBeforeAdd(identifier);
+            if (validationError != null) {
+                MessageDialogFragment.newInstance(R.string.title_validation_error, validationError).show(getSupportFragmentManager(), "validation error");
+                return;
+            }
             //if neither WhatsApp Consumer or WhatsApp Business is installed, then tell user to install the apps.
             if (!WhitelistCheck.isWhatsAppConsumerAppInstalled(getPackageManager()) && !WhitelistCheck.isWhatsAppSmbAppInstalled(getPackageManager())) {
                 Toast.makeText(this, R.string.add_pack_fail_prompt_update_whatsapp, Toast.LENGTH_LONG).show();
@@ -50,6 +57,21 @@ public abstract class AddStickerPackActivity extends BaseActivity {
             Toast.makeText(this, R.string.add_pack_fail_prompt_update_whatsapp, Toast.LENGTH_LONG).show();
         }
 
+    }
+
+    private String validatePackBeforeAdd(@NonNull String identifier) {
+        try {
+            final ArrayList<StickerPack> packs = StickerPackLoader.fetchStickerPacks(this);
+            for (StickerPack pack : packs) {
+                if (identifier.equals(pack.identifier)) {
+                    StickerPackValidator.verifyStickerPackValidity(this, pack);
+                    return null;
+                }
+            }
+            return getString(R.string.pack_not_found_error);
+        } catch (Exception e) {
+            return e.getMessage() == null ? getString(R.string.generic_validation_error) : e.getMessage();
+        }
     }
 
     private void launchIntentToAddPackToSpecificPackage(String identifier, String stickerPackName, String whatsappPackageName) {
