@@ -23,6 +23,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -221,24 +223,33 @@ public class StickerPackDetailsActivity extends AddStickerPackActivity {
     }
 
     private void confirmDeletePack() {
-        new androidx.appcompat.app.AlertDialog.Builder(this)
+        final AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.delete_pack_title)
                 .setMessage(R.string.delete_pack_message)
-                .setPositiveButton(R.string.delete_pack_confirm, (dialog, which) -> new DeletePackAsyncTask(this).execute(stickerPack.identifier))
+                .setPositiveButton(R.string.delete_pack_confirm, (dialogInterface, which) -> new DeletePackAsyncTask(this).execute(stickerPack.identifier))
                 .setNegativeButton(android.R.string.cancel, null)
-                .show();
+                .create();
+        dialog.setOnShowListener(d -> styleDialogButtons(dialog));
+        dialog.show();
     }
 
     private void onStickerLongPress(@NonNull Sticker sticker) {
         if (!stickerPack.isCustomPack()) {
             return;
         }
-        new androidx.appcompat.app.AlertDialog.Builder(this)
+        final AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.remove_sticker_title)
                 .setMessage(R.string.remove_sticker_message)
-                .setPositiveButton(R.string.remove_sticker_confirm, (dialog, which) -> new RemoveStickerAsyncTask(this).execute(sticker.imageFileName))
+                .setPositiveButton(R.string.remove_sticker_confirm, (dialogInterface, which) -> new RemoveStickerAsyncTask(this).execute(sticker.imageFileName))
                 .setNegativeButton(android.R.string.cancel, null)
-                .show();
+                .create();
+        dialog.setOnShowListener(d -> styleDialogButtons(dialog));
+        dialog.show();
+    }
+
+    private void styleDialogButtons(@NonNull AlertDialog dialog) {
+        dialog.getButton(DialogInterface.BUTTON_POSITIVE).setTextColor(ContextCompat.getColor(this, R.color.colorAccent));
+        dialog.getButton(DialogInterface.BUTTON_NEGATIVE).setTextColor(ContextCompat.getColor(this, R.color.colorAccent));
     }
 
     private void reloadCurrentPack() {
