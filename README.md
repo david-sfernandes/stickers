@@ -6,9 +6,9 @@
 
 > This repository contains the iOS and Android sample apps and API for creating third party sticker packs for WhatsApp.
 
-If you'd like to create your own [stickers for WhatsApp](https://faq.whatsapp.com/en/android/26000227/), you can package them in an Android or iOS app. 
+If you'd like to create your own [stickers for WhatsApp](https://faq.whatsapp.com/en/android/26000227/), you can package them in an Android or iOS app.
 
-For Android users, you can publish your sticker app to the [Google Play Store](https://play.google.com/store) and users who download and install your app will be able to start sending those stickers right away from within WhatsApp. 
+For Android users, you can publish your sticker app to the [Google Play Store](https://play.google.com/store) and users who download and install your app will be able to start sending those stickers right away from within WhatsApp.
 For iOS developers please read the [IMPORTANT NOTICE ABOUT iOS APPS](#please-read-important-notice-about-ios-apps) section.
 
 **Stickers on WhatsApp must be legal, authorized and acceptable.** Learn more about acceptable uses of our services from our [Terms of Service](https://www.whatsapp.com/legal/#terms-of-service).
@@ -24,10 +24,12 @@ With Apple’s strict App Store review policy, we recommend iOS developers to su
 The sample iOS app is an example of how to use our API to import stickers into WhatsApp and can serve as a guide on how to get started, but it is not meant to be used as a template for your app because it will not be accepted by Apple.
 
 ## Announcements :loudspeaker:
+
 Please check out [Announcements](https://github.com/WhatsApp/stickers/wiki/Animated-Stickers) for recent changes.
 
 ## Brand guidelines
-When naming your app, it is strongly advised you do not use "WhatsApp" anywhere in the name of your app or in the name field of your app listing. However, when preparing your app for submission in Google Play Store/App Store, you'll have the option to add description associated with your app and it's okay to mention WhatsApp in the description. Make sure you use "WhatsApp" as a brand name, with "W" and "A" capitalized with no space between letters. More information on WhatsApp Brand(https://www.facebook.com/brand/resources/whatsapp/whatsapp-brand).
+
+When naming your app, it is strongly advised you do not use "WhatsApp" anywhere in the name of your app or in the name field of your app listing. However, when preparing your app for submission in Google Play Store/App Store, you'll have the option to add description associated with your app and it's okay to mention WhatsApp in the description. Make sure you use "WhatsApp" as a brand name, with "W" and "A" capitalized with no space between letters. More information on WhatsApp Brand(<https://www.facebook.com/brand/resources/whatsapp/whatsapp-brand>).
 
 ## Opening Issues :warning:
 

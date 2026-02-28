@@ -15,7 +15,7 @@ android {
     }
     compileSdkVersion 30
     defaultConfig {
-        applicationId "com.example.samplestickerapp"
+        applicationId "com.example.davidstickers"
         minSdkVersion 15
         targetSdkVersion 30
         versionCode 1
