@@ -8,22 +8,18 @@
 
 package com.example.samplestickerapp;
 
-import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.text.TextUtils;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.widget.EditText;
-import android.widget.LinearLayout;
+import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
-import androidx.core.content.ContextCompat;
-import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -40,6 +36,8 @@ public class StickerPackListActivity extends AddStickerPackActivity {
     private WhiteListCheckAsyncTask whiteListCheckAsyncTask;
     private LoadPacksAsyncTask loadPacksAsyncTask;
     private ArrayList<StickerPack> stickerPackList;
+    private View emptyState;
+    private ExtendedFloatingActionButton createPackButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,8 +48,21 @@ public class StickerPackListActivity extends AddStickerPackActivity {
         if (stickerPackList == null) {
             stickerPackList = new ArrayList<>();
         }
+        emptyState = findViewById(R.id.empty_state);
+        createPackButton = findViewById(R.id.create_pack_button);
+        createPackButton.setOnClickListener(v -> showCreatePackDialog());
+        packRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                if (dy > 0) {
+                    createPackButton.shrink();
+                } else if (dy < 0) {
+                    createPackButton.extend();
+                }
+            }
+        });
         showStickerPackList(stickerPackList);
-        updateActionBarTitle();
+        updateEmptyState();
     }
 
     @Override
@@ -72,25 +83,8 @@ public class StickerPackListActivity extends AddStickerPackActivity {
         }
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.pack_list_toolbar, menu);
-        return super.onCreateOptionsMenu(menu);
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == R.id.action_create_pack) {
-            showCreatePackDialog();
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
-    private void updateActionBarTitle() {
-        if (getSupportActionBar() != null) {
-            getSupportActionBar().setTitle(getResources().getQuantityString(R.plurals.title_activity_sticker_packs_list, stickerPackList.size()));
-        }
+    private void updateEmptyState() {
+        emptyState.setVisibility(stickerPackList.isEmpty() ? View.VISIBLE : View.GONE);
     }
 
     private void showStickerPackList(List<StickerPack> packs) {
@@ -98,49 +92,19 @@ public class StickerPackListActivity extends AddStickerPackActivity {
         packRecyclerView.setAdapter(allStickerPacksListAdapter);
         packLayoutManager = new LinearLayoutManager(this);
         packLayoutManager.setOrientation(RecyclerView.VERTICAL);
-        DividerItemDecoration dividerItemDecoration = new DividerItemDecoration(
-                packRecyclerView.getContext(),
-                packLayoutManager.getOrientation()
-        );
-        packRecyclerView.addItemDecoration(dividerItemDecoration);
         packRecyclerView.setLayoutManager(packLayoutManager);
         packRecyclerView.getViewTreeObserver().addOnGlobalLayoutListener(this::recalculateColumnCount);
     }
 
     private void showCreatePackDialog() {
-        final EditText nameInput = new EditText(this);
-        nameInput.setHint(R.string.pack_name_hint);
-        final EditText publisherInput = new EditText(this);
-        publisherInput.setHint(R.string.pack_publisher_hint);
+        PackFormDialog.show(this, R.string.create_pack_title, R.string.create_pack_confirm, null, null, (name, publisher) -> new CreatePackAsyncTask(this, name, publisher).execute());
+    }
 
-        final LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        final int padding = getResources().getDimensionPixelSize(R.dimen.preview_side_margin);
-        layout.setPadding(padding, padding, padding, 0);
-        layout.addView(nameInput);
-        layout.addView(publisherInput);
-
-        final AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(R.string.create_pack_title)
-                .setView(layout)
-                .setPositiveButton(R.string.create_pack_confirm, null)
-                .setNegativeButton(android.R.string.cancel, null)
-                .create();
-        dialog.setOnShowListener(d -> {
-            dialog.getButton(DialogInterface.BUTTON_POSITIVE).setTextColor(ContextCompat.getColor(this, R.color.colorAccent));
-            dialog.getButton(DialogInterface.BUTTON_NEGATIVE).setTextColor(ContextCompat.getColor(this, R.color.colorAccent));
-            dialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener(v -> {
-                final String name = nameInput.getText().toString().trim();
-                final String publisher = publisherInput.getText().toString().trim();
-                if (TextUtils.isEmpty(name) || TextUtils.isEmpty(publisher)) {
-                    Toast.makeText(this, R.string.create_pack_validation, Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                dialog.dismiss();
-                new CreatePackAsyncTask(this, name, publisher).execute();
-            });
-        });
-        dialog.show();
+    private void openPack(@NonNull StickerPack pack) {
+        final Intent intent = new Intent(this, StickerPackDetailsActivity.class);
+        intent.putExtra(StickerPackDetailsActivity.EXTRA_SHOW_UP_BUTTON, true);
+        intent.putExtra(StickerPackDetailsActivity.EXTRA_STICKER_PACK_DATA, pack);
+        startActivity(intent);
     }
 
     private void recalculateColumnCount() {
@@ -162,7 +126,7 @@ public class StickerPackListActivity extends AddStickerPackActivity {
     private void refreshListAndWhitelist() {
         allStickerPacksListAdapter.setStickerPackList(stickerPackList);
         allStickerPacksListAdapter.notifyDataSetChanged();
-        updateActionBarTitle();
+        updateEmptyState();
         whiteListCheckAsyncTask = new WhiteListCheckAsyncTask(this);
         whiteListCheckAsyncTask.execute(stickerPackList.toArray(new StickerPack[0]));
     }
@@ -229,7 +193,7 @@ public class StickerPackListActivity extends AddStickerPackActivity {
         }
     }
 
-    static class CreatePackAsyncTask extends AsyncTask<Void, Void, String> {
+    static class CreatePackAsyncTask extends AsyncTask<Void, Void, StickerPack> {
         private final WeakReference<StickerPackListActivity> activityReference;
         private final String name;
         private final String publisher;
@@ -241,33 +205,32 @@ public class StickerPackListActivity extends AddStickerPackActivity {
         }
 
         @Override
-        protected String doInBackground(Void... voids) {
+        protected StickerPack doInBackground(Void... voids) {
             final StickerPackListActivity activity = activityReference.get();
             if (activity == null) {
-                return "activity unavailable";
+                return null;
             }
             try {
-                UserStickerPackStore.createPack(activity, name, publisher);
+                final StickerPack pack = UserStickerPackStore.createPack(activity, name, publisher);
                 activity.getContentResolver().notifyChange(StickerContentProvider.AUTHORITY_URI, null);
-                return null;
+                return pack;
             } catch (Exception e) {
-                return e.getMessage();
+                Log.e("StickerPackListActivity", "could not create pack", e);
+                return null;
             }
         }
 
         @Override
-        protected void onPostExecute(String error) {
+        protected void onPostExecute(StickerPack pack) {
             final StickerPackListActivity activity = activityReference.get();
             if (activity == null) {
                 return;
             }
-            if (error != null) {
-                Toast.makeText(activity, activity.getString(R.string.create_pack_error, error), Toast.LENGTH_LONG).show();
+            if (pack == null) {
+                Toast.makeText(activity, R.string.create_pack_error, Toast.LENGTH_LONG).show();
                 return;
             }
-            Toast.makeText(activity, R.string.create_pack_success, Toast.LENGTH_SHORT).show();
-            activity.loadPacksAsyncTask = new LoadPacksAsyncTask(activity);
-            activity.loadPacksAsyncTask.execute();
+            activity.openPack(pack);
         }
     }
 }

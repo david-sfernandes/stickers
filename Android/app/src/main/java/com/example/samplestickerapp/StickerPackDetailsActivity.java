@@ -9,11 +9,12 @@
 package com.example.samplestickerapp;
 
 import android.content.ActivityNotFoundException;
-import android.content.DialogInterface;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.text.format.Formatter;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -23,13 +24,16 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
-import androidx.core.content.ContextCompat;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.facebook.drawee.view.SimpleDraweeView;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 
@@ -42,22 +46,23 @@ public class StickerPackDetailsActivity extends AddStickerPackActivity {
     public static final String EXTRA_STICKER_PACK_AUTHORITY = "sticker_pack_authority";
     public static final String EXTRA_STICKER_PACK_NAME = "sticker_pack_name";
 
-    public static final String EXTRA_STICKER_PACK_WEBSITE = "sticker_pack_website";
-    public static final String EXTRA_STICKER_PACK_EMAIL = "sticker_pack_email";
-    public static final String EXTRA_STICKER_PACK_PRIVACY_POLICY = "sticker_pack_privacy_policy";
-    public static final String EXTRA_STICKER_PACK_LICENSE_AGREEMENT = "sticker_pack_license_agreement";
-    public static final String EXTRA_STICKER_PACK_TRAY_ICON = "sticker_pack_tray_icon";
     public static final String EXTRA_SHOW_UP_BUTTON = "show_up_button";
     public static final String EXTRA_STICKER_PACK_DATA = "sticker_pack";
     private static final int PICK_IMAGE_REQUEST = 301;
+    private static final int EDIT_STICKER_REQUEST = 302;
 
 
     private RecyclerView recyclerView;
     private GridLayoutManager layoutManager;
     private StickerPreviewAdapter stickerPreviewAdapter;
     private int numColumns;
-    private View addButton;
+    private MaterialButton addButton;
+    private MaterialButton addStickerButton;
     private View alreadyAddedText;
+    private View tapToPreviewText;
+    private View emptyStickersView;
+    private View progressIndicator;
+    private boolean isWhitelisted;
     private StickerPack stickerPack;
     private View divider;
     private WhiteListCheckAsyncTask whiteListCheckAsyncTask;
@@ -80,7 +85,11 @@ public class StickerPackDetailsActivity extends AddStickerPackActivity {
         SimpleDraweeView expandedStickerView = findViewById(R.id.sticker_details_expanded_sticker);
 
         addButton = findViewById(R.id.add_to_whatsapp_button);
+        addStickerButton = findViewById(R.id.add_sticker_button);
         alreadyAddedText = findViewById(R.id.already_added_text);
+        tapToPreviewText = findViewById(R.id.sticker_pack_details_tap_to_preview);
+        emptyStickersView = findViewById(R.id.empty_stickers);
+        progressIndicator = findViewById(R.id.details_progress);
         layoutManager = new GridLayoutManager(this, 1);
         recyclerView = findViewById(R.id.sticker_list);
         recyclerView.setLayoutManager(layoutManager);
@@ -92,53 +101,33 @@ public class StickerPackDetailsActivity extends AddStickerPackActivity {
                     getLayoutInflater(),
                     R.drawable.sticker_error,
                     getResources().getDimensionPixelSize(R.dimen.sticker_pack_details_image_size),
-                    getResources().getDimensionPixelSize(R.dimen.sticker_pack_details_image_padding),
                     stickerPack,
                     expandedStickerView,
                     this::onStickerLongPress
             );
             recyclerView.setAdapter(stickerPreviewAdapter);
         }
-        packNameTextView.setText(stickerPack.name);
-        packPublisherTextView.setText(stickerPack.publisher);
-        packTrayIcon.setImageURI(StickerPackLoader.getStickerAssetUri(stickerPack.identifier, stickerPack.trayImageFile));
-        packSizeTextView.setText(Formatter.formatShortFileSize(this, stickerPack.getTotalSize()));
         addButton.setOnClickListener(v -> addStickerPackToWhatsApp(stickerPack.identifier, stickerPack.name));
+        addStickerButton.setOnClickListener(v -> selectImageForSticker());
         if (getSupportActionBar() != null) {
             getSupportActionBar().setDisplayHomeAsUpEnabled(showUpButton);
-            getSupportActionBar().setTitle(showUpButton ? getResources().getString(R.string.title_activity_sticker_pack_details_multiple_pack) : getResources().getQuantityString(R.plurals.title_activity_sticker_packs_list, 1));
+            getSupportActionBar().setTitle("");
         }
-        findViewById(R.id.sticker_pack_animation_indicator).setVisibility(stickerPack.animatedStickerPack ? View.VISIBLE : View.GONE);
-        View addStickerButton = findViewById(R.id.add_sticker_button);
-        addStickerButton.setVisibility(stickerPack.isCustomPack() ? View.VISIBLE : View.GONE);
-        addStickerButton.setOnClickListener(v -> selectImageForSticker());
-    }
-
-    private void launchInfoActivity(String publisherWebsite, String publisherEmail, String privacyPolicyWebsite, String licenseAgreementWebsite, String trayIconUriString) {
-        Intent intent = new Intent(StickerPackDetailsActivity.this, StickerPackInfoActivity.class);
-        intent.putExtra(StickerPackDetailsActivity.EXTRA_STICKER_PACK_ID, stickerPack.identifier);
-        intent.putExtra(StickerPackDetailsActivity.EXTRA_STICKER_PACK_WEBSITE, publisherWebsite);
-        intent.putExtra(StickerPackDetailsActivity.EXTRA_STICKER_PACK_EMAIL, publisherEmail);
-        intent.putExtra(StickerPackDetailsActivity.EXTRA_STICKER_PACK_PRIVACY_POLICY, privacyPolicyWebsite);
-        intent.putExtra(StickerPackDetailsActivity.EXTRA_STICKER_PACK_LICENSE_AGREEMENT, licenseAgreementWebsite);
-        intent.putExtra(StickerPackDetailsActivity.EXTRA_STICKER_PACK_TRAY_ICON, trayIconUriString);
-        startActivity(intent);
+        updatePackUI();
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.toolbar, menu);
-        menu.findItem(R.id.action_delete_pack).setVisible(stickerPack != null);
         return super.onCreateOptionsMenu(menu);
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.action_info && stickerPack != null) {
-            Uri trayIconUri = StickerPackLoader.getStickerAssetUri(stickerPack.identifier, stickerPack.trayImageFile);
-            launchInfoActivity(stickerPack.publisherWebsite, stickerPack.publisherEmail, stickerPack.privacyPolicyWebsite, stickerPack.licenseAgreementWebsite, trayIconUri.toString());
+        if (item.getItemId() == R.id.action_edit_pack) {
+            PackFormDialog.show(this, R.string.edit_pack_title, R.string.edit_pack_confirm, stickerPack.name, stickerPack.publisher, (name, publisher) -> new UpdatePackAsyncTask(this, packContext -> UserStickerPackStore.updatePackDetails(packContext, stickerPack.identifier, name, publisher)).execute());
             return true;
-        } else if (item.getItemId() == R.id.action_delete_pack && stickerPack != null) {
+        } else if (item.getItemId() == R.id.action_delete_pack) {
             confirmDeletePack();
             return true;
         }
@@ -149,15 +138,18 @@ public class StickerPackDetailsActivity extends AddStickerPackActivity {
     private final ViewTreeObserver.OnGlobalLayoutListener pageLayoutListener = new ViewTreeObserver.OnGlobalLayoutListener() {
         @Override
         public void onGlobalLayout() {
-            setNumColumns(recyclerView.getWidth() / recyclerView.getContext().getResources().getDimensionPixelSize(R.dimen.sticker_pack_details_image_size));
+            final int usableWidth = recyclerView.getWidth() - recyclerView.getPaddingLeft() - recyclerView.getPaddingRight();
+            setNumColumns(Math.max(1, usableWidth / recyclerView.getContext().getResources().getDimensionPixelSize(R.dimen.sticker_pack_details_image_size)), usableWidth);
         }
     };
 
-    private void setNumColumns(int numColumns) {
+    private void setNumColumns(int numColumns, int usableWidth) {
         if (this.numColumns != numColumns) {
             layoutManager.setSpanCount(numColumns);
             this.numColumns = numColumns;
             if (stickerPreviewAdapter != null) {
+                // Cells take the whole width of a column and stay square.
+                stickerPreviewAdapter.setCellHeight(usableWidth / numColumns - 2 * getResources().getDimensionPixelSize(R.dimen.sticker_cell_margin));
                 stickerPreviewAdapter.notifyDataSetChanged();
             }
         }
@@ -199,16 +191,30 @@ public class StickerPackDetailsActivity extends AddStickerPackActivity {
         }
     }
 
-    private void updateAddUI(Boolean isWhitelisted) {
-        if (isWhitelisted) {
-            addButton.setVisibility(View.GONE);
-            alreadyAddedText.setVisibility(View.VISIBLE);
-            findViewById(R.id.sticker_pack_details_tap_to_preview).setVisibility(View.GONE);
+    private void updateAddUI(boolean isWhitelisted) {
+        this.isWhitelisted = isWhitelisted;
+        final int stickerCount = stickerPack.getStickers().size();
+        final int missing = UserStickerPackStore.MIN_STICKERS_PER_PACK - stickerCount;
+        addButton.setVisibility(isWhitelisted ? View.GONE : View.VISIBLE);
+        addButton.setEnabled(missing <= 0);
+        if (missing > 0) {
+            addButton.setText(getResources().getQuantityString(R.plurals.pack_missing_stickers, missing, missing));
         } else {
-            addButton.setVisibility(View.VISIBLE);
-            alreadyAddedText.setVisibility(View.GONE);
-            findViewById(R.id.sticker_pack_details_tap_to_preview).setVisibility(View.VISIBLE);
+            addButton.setText(R.string.add_to_whatsapp);
         }
+        alreadyAddedText.setVisibility(isWhitelisted ? View.VISIBLE : View.GONE);
+        tapToPreviewText.setVisibility(stickerCount > 0 ? View.VISIBLE : View.GONE);
+        emptyStickersView.setVisibility(stickerCount > 0 ? View.GONE : View.VISIBLE);
+
+        final boolean isFull = stickerCount >= UserStickerPackStore.MAX_STICKERS_PER_PACK;
+        addStickerButton.setEnabled(!isFull);
+        addStickerButton.setText(isFull ? R.string.pack_is_full : R.string.add_sticker_to_pack);
+    }
+
+    @Override
+    protected void onPackValidationStateChanged(boolean validating) {
+        progressIndicator.setVisibility(validating ? View.VISIBLE : View.INVISIBLE);
+        addButton.setEnabled(!validating);
     }
 
     private void selectImageForSticker() {
@@ -222,34 +228,54 @@ public class StickerPackDetailsActivity extends AddStickerPackActivity {
         }
     }
 
+    private void openEditor(@NonNull Uri source, @Nullable Sticker replacedSticker) {
+        final Intent intent = new Intent(this, StickerEditorActivity.class);
+        intent.setData(source);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.putExtra(StickerEditorActivity.EXTRA_PACK_ID, stickerPack.identifier);
+        intent.putExtra(StickerEditorActivity.EXTRA_PACK_ANIMATED, stickerPack.animatedStickerPack);
+        intent.putExtra(StickerEditorActivity.EXTRA_OTHER_STICKERS, stickerPack.getStickers().size() - (replacedSticker != null ? 1 : 0));
+        if (replacedSticker != null) {
+            intent.putExtra(StickerEditorActivity.EXTRA_REPLACED_FILE, replacedSticker.imageFileName);
+            intent.putExtra(StickerEditorActivity.EXTRA_EMOJIS, TextUtils.join("", replacedSticker.emojis));
+        }
+        startActivityForResult(intent, EDIT_STICKER_REQUEST);
+    }
+
     private void confirmDeletePack() {
-        final AlertDialog dialog = new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.delete_pack_title)
                 .setMessage(R.string.delete_pack_message)
                 .setPositiveButton(R.string.delete_pack_confirm, (dialogInterface, which) -> new DeletePackAsyncTask(this).execute(stickerPack.identifier))
                 .setNegativeButton(android.R.string.cancel, null)
-                .create();
-        dialog.setOnShowListener(d -> styleDialogButtons(dialog));
-        dialog.show();
+                .show();
     }
 
     private void onStickerLongPress(@NonNull Sticker sticker) {
-        if (!stickerPack.isCustomPack()) {
-            return;
-        }
-        final AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(R.string.remove_sticker_title)
-                .setMessage(R.string.remove_sticker_message)
-                .setPositiveButton(R.string.remove_sticker_confirm, (dialogInterface, which) -> new RemoveStickerAsyncTask(this).execute(sticker.imageFileName))
-                .setNegativeButton(android.R.string.cancel, null)
-                .create();
-        dialog.setOnShowListener(d -> styleDialogButtons(dialog));
-        dialog.show();
+        final BottomSheetDialog sheet = new BottomSheetDialog(this);
+        sheet.setContentView(R.layout.bottom_sheet_sticker_actions);
+        sheet.findViewById(R.id.action_edit_sticker).setOnClickListener(v -> {
+            sheet.dismiss();
+            openEditor(StickerPackLoader.getStickerAssetUri(stickerPack.identifier, sticker.imageFileName), sticker);
+        });
+        sheet.findViewById(R.id.action_set_tray).setOnClickListener(v -> {
+            sheet.dismiss();
+            new UpdatePackAsyncTask(this, packContext -> UserStickerPackStore.setTraySticker(packContext, stickerPack.identifier, sticker.imageFileName)).execute();
+        });
+        sheet.findViewById(R.id.action_remove_sticker).setOnClickListener(v -> {
+            sheet.dismiss();
+            confirmRemoveSticker(sticker);
+        });
+        sheet.show();
     }
 
-    private void styleDialogButtons(@NonNull AlertDialog dialog) {
-        dialog.getButton(DialogInterface.BUTTON_POSITIVE).setTextColor(ContextCompat.getColor(this, R.color.colorAccent));
-        dialog.getButton(DialogInterface.BUTTON_NEGATIVE).setTextColor(ContextCompat.getColor(this, R.color.colorAccent));
+    private void confirmRemoveSticker(@NonNull Sticker sticker) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.remove_sticker_title)
+                .setMessage(R.string.remove_sticker_message)
+                .setPositiveButton(R.string.remove_sticker_confirm, (dialogInterface, which) -> new UpdatePackAsyncTask(this, packContext -> UserStickerPackStore.removeStickerFromPack(packContext, stickerPack.identifier, sticker.imageFileName)).execute())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     private void reloadCurrentPack() {
@@ -257,20 +283,26 @@ public class StickerPackDetailsActivity extends AddStickerPackActivity {
     }
 
     private void updatePackUI() {
+        stickerPreviewAdapter.hideExpandedStickerPreview();
         packNameTextView.setText(stickerPack.name);
         packPublisherTextView.setText(stickerPack.publisher);
+        // The file name never changes, so the view would keep the old image without the reset.
+        packTrayIcon.setImageURI(null);
         packTrayIcon.setImageURI(StickerPackLoader.getStickerAssetUri(stickerPack.identifier, stickerPack.trayImageFile));
-        packSizeTextView.setText(Formatter.formatShortFileSize(this, stickerPack.getTotalSize()));
-        findViewById(R.id.add_sticker_button).setVisibility(stickerPack.isCustomPack() ? View.VISIBLE : View.GONE);
+        packSizeTextView.setText(getString(R.string.pack_summary, stickerPack.getStickers().size(), UserStickerPackStore.MAX_STICKERS_PER_PACK, Formatter.formatShortFileSize(this, stickerPack.getTotalSize())));
+        findViewById(R.id.sticker_pack_animation_indicator).setVisibility(stickerPack.animatedStickerPack ? View.VISIBLE : View.GONE);
         stickerPreviewAdapter.setStickerPack(stickerPack);
         stickerPreviewAdapter.notifyDataSetChanged();
+        updateAddUI(isWhitelisted);
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null) {
-            new AddStickerAsyncTask(this).execute(data.getData());
+            openEditor(data.getData(), null);
+        } else if (requestCode == EDIT_STICKER_REQUEST && resultCode == RESULT_OK) {
+            reloadCurrentPack();
         }
     }
 
@@ -297,42 +329,6 @@ public class StickerPackDetailsActivity extends AddStickerPackActivity {
             if (stickerPackDetailsActivity != null) {
                 stickerPackDetailsActivity.updateAddUI(isWhitelisted);
             }
-        }
-    }
-
-    static class AddStickerAsyncTask extends AsyncTask<Uri, Void, String> {
-        private final WeakReference<StickerPackDetailsActivity> activityReference;
-
-        AddStickerAsyncTask(StickerPackDetailsActivity activity) {
-            this.activityReference = new WeakReference<>(activity);
-        }
-
-        @Override
-        protected String doInBackground(Uri... uris) {
-            final StickerPackDetailsActivity activity = activityReference.get();
-            if (activity == null) {
-                return "activity unavailable";
-            }
-            try {
-                UserStickerPackStore.addStickerToPack(activity, activity.stickerPack.identifier, uris[0]);
-                activity.getContentResolver().notifyChange(StickerContentProvider.AUTHORITY_URI, null);
-                return null;
-            } catch (Exception e) {
-                return e.getMessage();
-            }
-        }
-
-        @Override
-        protected void onPostExecute(String error) {
-            final StickerPackDetailsActivity activity = activityReference.get();
-            if (activity == null) {
-                return;
-            }
-            if (error != null) {
-                MessageDialogFragment.newInstance(R.string.title_validation_error, error).show(activity.getSupportFragmentManager(), "add_sticker_error");
-                return;
-            }
-            activity.reloadCurrentPack();
         }
     }
 
@@ -389,18 +385,14 @@ public class StickerPackDetailsActivity extends AddStickerPackActivity {
                 return "activity unavailable";
             }
             try {
-                if (activity.stickerPack.isCustomPack()) {
-                    boolean deleted = UserStickerPackStore.deletePack(activity, identifiers[0]);
-                    if (!deleted) {
-                        return activity.getString(R.string.delete_pack_not_found);
-                    }
-                } else {
-                    UserStickerPackStore.hidePack(activity, identifiers[0]);
+                boolean deleted = UserStickerPackStore.deletePack(activity, identifiers[0]);
+                if (!deleted) {
+                    return activity.getString(R.string.delete_pack_not_found);
                 }
                 activity.getContentResolver().notifyChange(StickerContentProvider.AUTHORITY_URI, null);
                 return null;
             } catch (Exception e) {
-                return e.getMessage();
+                return StickerException.userMessage(activity, e);
             }
         }
 
@@ -418,36 +410,40 @@ public class StickerPackDetailsActivity extends AddStickerPackActivity {
         }
     }
 
-    static class RemoveStickerAsyncTask extends AsyncTask<String, Void, String> {
-        private final WeakReference<StickerPackDetailsActivity> activityReference;
+    interface PackUpdate {
+        void apply(Context context) throws IOException;
+    }
 
-        RemoveStickerAsyncTask(StickerPackDetailsActivity activity) {
+    static class UpdatePackAsyncTask extends AsyncTask<Void, Void, Throwable> {
+        private final WeakReference<StickerPackDetailsActivity> activityReference;
+        private final Context context;
+        private final PackUpdate update;
+
+        UpdatePackAsyncTask(StickerPackDetailsActivity activity, PackUpdate update) {
             this.activityReference = new WeakReference<>(activity);
+            this.context = activity.getApplicationContext();
+            this.update = update;
         }
 
         @Override
-        protected String doInBackground(String... fileNames) {
-            final StickerPackDetailsActivity activity = activityReference.get();
-            if (activity == null) {
-                return "activity unavailable";
-            }
+        protected Throwable doInBackground(Void... voids) {
             try {
-                UserStickerPackStore.removeStickerFromPack(activity, activity.stickerPack.identifier, fileNames[0]);
-                activity.getContentResolver().notifyChange(StickerContentProvider.AUTHORITY_URI, null);
+                update.apply(context);
+                context.getContentResolver().notifyChange(StickerContentProvider.AUTHORITY_URI, null);
                 return null;
             } catch (Exception e) {
-                return e.getMessage();
+                return e;
             }
         }
 
         @Override
-        protected void onPostExecute(String error) {
+        protected void onPostExecute(Throwable error) {
             final StickerPackDetailsActivity activity = activityReference.get();
             if (activity == null) {
                 return;
             }
             if (error != null) {
-                MessageDialogFragment.newInstance(R.string.title_validation_error, error).show(activity.getSupportFragmentManager(), "remove_sticker_error");
+                MessageDialogFragment.newInstance(R.string.title_validation_error, StickerException.userMessage(activity, error)).show(activity.getSupportFragmentManager(), "update_pack_error");
                 return;
             }
             activity.reloadCurrentPack();

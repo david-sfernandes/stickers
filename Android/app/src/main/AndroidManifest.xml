@@ -12,7 +12,9 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
-        <activity android:name=".EntryActivity">
+        <activity
+            android:name=".EntryActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -28,14 +30,11 @@
                 android:value="com.example.samplestickerapp.StickerPackListActivity" />
         </activity>
         <activity
-            android:name=".StickerPackInfoActivity"
-            android:label="@string/title_activity_sticker_pack_info"
+            android:name=".StickerEditorActivity"
             android:parentActivityName=".StickerPackDetailsActivity"
-            tools:ignore="UnusedAttribute">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.example.samplestickerapp.StickerPackDetailsActivity" />
-        </activity>
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity" />
 
         <provider
             android:name=".StickerContentProvider"

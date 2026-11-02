@@ -4,8 +4,8 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.net.Uri;
 import android.text.TextUtils;
+import android.util.AtomicFile;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -14,7 +14,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -22,20 +21,18 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 final class UserStickerPackStore {
     private static final String ROOT_FOLDER = "user_sticker_packs";
     private static final String PACKS_FOLDER = "packs";
     private static final String METADATA_FILE = "contents.json";
     private static final String DEFAULT_TRAY_FILE = "tray.png";
-    private static final String PREFS_NAME = "sticker_pack_prefs";
-    private static final String PREF_HIDDEN_PACKS = "hidden_packs";
+    private static final String TRAY_SOURCE_FIELD = "tray_source";
     private static final int TRAY_SIZE_PX = 96;
-    private static final String DEFAULT_STICKER_EMOJI = "\uD83D\uDE42";
+    static final int MAX_STICKERS_PER_PACK = 30;
+    static final int MIN_STICKERS_PER_PACK = 3;
 
     private UserStickerPackStore() {
     }
@@ -55,7 +52,7 @@ final class UserStickerPackStore {
             throw new IOException("invalid metadata");
         }
 
-        final String identifier = generateIdentifier(name, packsArray);
+        final String identifier = generateIdentifier(packsArray);
         final JSONObject newPack = new JSONObject();
         try {
             newPack.put("identifier", identifier);
@@ -85,89 +82,111 @@ final class UserStickerPackStore {
         return createdPack;
     }
 
-    static synchronized StickerPack addStickerToPack(@NonNull Context context, @NonNull String identifier, @NonNull Uri imageUri) throws IOException {
+    /**
+     * @param replacedFileName the sticker to be substituted, keeping its position. Null to add a new one.
+     */
+    static synchronized StickerPack addStickerToPack(@NonNull Context context, @NonNull String identifier, @NonNull byte[] stickerWebp, @NonNull List<String> emojis, boolean animated, @Nullable String replacedFileName) throws IOException {
         final JSONObject root = readOrCreateMetadata(context);
-        final JSONObject packObject = findPackObject(root, identifier);
-        if (packObject == null) {
-            throw new IOException("pack not found");
-        }
-
-        final byte[] stickerWebp = StickerImageProcessor.createStickerWebp(context, imageUri);
-        final String fileName = String.format(Locale.US, "sticker_%d.webp", System.currentTimeMillis());
+        final JSONObject packObject = requirePackObject(root, identifier);
         final File packDir = getPackDir(context, identifier);
         if (!packDir.exists() && !packDir.mkdirs()) {
             throw new IOException("failed to create pack folder");
         }
-        writeBytes(new File(packDir, fileName), stickerWebp);
+        final String fileName = String.format(Locale.US, "sticker_%d.webp", System.currentTimeMillis());
 
         try {
             final JSONArray stickers = packObject.getJSONArray("stickers");
+            final int replacedIndex = replacedFileName == null ? -1 : findStickerIndex(stickers, replacedFileName);
+            if (replacedFileName != null && replacedIndex < 0) {
+                throw new StickerException(R.string.error_sticker_not_found);
+            }
+            if (replacedFileName == null && stickers.length() >= MAX_STICKERS_PER_PACK) {
+                throw new StickerException(R.string.error_pack_full);
+            }
+            final int otherStickers = stickers.length() - (replacedIndex >= 0 ? 1 : 0);
+            if (otherStickers > 0 && packObject.optBoolean("animated_sticker_pack", false) != animated) {
+                throw new StickerException(R.string.error_pack_type_mismatch);
+            }
+            writeBytes(new File(packDir, fileName), stickerWebp);
+
             final JSONObject sticker = new JSONObject();
             sticker.put("image_file", fileName);
-            final JSONArray emojis = new JSONArray();
-            emojis.put(DEFAULT_STICKER_EMOJI);
-            sticker.put("emojis", emojis);
-            stickers.put(sticker);
-            packObject.put("image_data_version", String.valueOf(System.currentTimeMillis()));
-
-            if (stickers.length() == 1) {
-                createTrayFromSticker(packDir, stickerWebp);
+            sticker.put("emojis", new JSONArray(emojis));
+            if (replacedIndex >= 0) {
+                stickers.put(replacedIndex, sticker);
+            } else {
+                stickers.put(sticker);
             }
+            packObject.put("animated_sticker_pack", animated);
+            if (replacedFileName != null && replacedFileName.equals(packObject.optString(TRAY_SOURCE_FIELD))) {
+                packObject.put(TRAY_SOURCE_FIELD, fileName);
+            }
+            packObject.put("image_data_version", String.valueOf(System.currentTimeMillis()));
+            updateTray(packDir, packObject);
         } catch (JSONException e) {
             throw new IOException("failed to update sticker metadata", e);
         }
 
         writeMetadata(context, root);
-        final List<StickerPack> packs = loadStickerPacks(context);
-        final StickerPack updatedPack = findPackByIdentifier(packs, identifier);
-        if (updatedPack == null) {
-            throw new IOException("failed to reload pack");
+        if (replacedFileName != null) {
+            deleteFile(new File(packDir, replacedFileName));
         }
-        return updatedPack;
+        return reloadPack(context, identifier);
     }
 
     static synchronized StickerPack removeStickerFromPack(@NonNull Context context, @NonNull String identifier, @NonNull String stickerFileName) throws IOException {
         final JSONObject root = readOrCreateMetadata(context);
-        final JSONObject packObject = findPackObject(root, identifier);
-        if (packObject == null) {
-            throw new IOException("pack not found");
-        }
+        final JSONObject packObject = requirePackObject(root, identifier);
         final JSONArray stickers = packObject.optJSONArray("stickers");
-        if (stickers == null) {
-            throw new IOException("stickers not found");
+        final int index = stickers == null ? -1 : findStickerIndex(stickers, stickerFileName);
+        if (index < 0) {
+            throw new StickerException(R.string.error_sticker_not_found);
         }
-
-        boolean removed = false;
-        for (int i = 0; i < stickers.length(); i++) {
-            final JSONObject sticker = stickers.optJSONObject(i);
-            if (sticker != null && stickerFileName.equals(sticker.optString("image_file"))) {
-                stickers.remove(i);
-                removed = true;
-                break;
-            }
-        }
-        if (!removed) {
-            throw new IOException("sticker not found");
-        }
+        stickers.remove(index);
 
         try {
+            if (stickerFileName.equals(packObject.optString(TRAY_SOURCE_FIELD))) {
+                packObject.remove(TRAY_SOURCE_FIELD);
+            }
+            if (stickers.length() == 0) {
+                // An empty pack can receive any type of sticker again.
+                packObject.put("animated_sticker_pack", false);
+            }
             packObject.put("image_data_version", String.valueOf(System.currentTimeMillis()));
         } catch (JSONException e) {
             throw new IOException("failed to update sticker metadata", e);
         }
+        updateTray(getPackDir(context, identifier), packObject);
         writeMetadata(context, root);
-        final File stickerFile = getStickerFile(context, identifier, stickerFileName);
-        if (stickerFile.exists()) {
-            //noinspection ResultOfMethodCallIgnored
-            stickerFile.delete();
-        }
+        deleteFile(getStickerFile(context, identifier, stickerFileName));
+        return reloadPack(context, identifier);
+    }
 
-        final List<StickerPack> packs = loadStickerPacks(context);
-        final StickerPack updatedPack = findPackByIdentifier(packs, identifier);
-        if (updatedPack == null) {
-            throw new IOException("failed to reload pack");
+    static synchronized StickerPack updatePackDetails(@NonNull Context context, @NonNull String identifier, @NonNull String name, @NonNull String publisher) throws IOException {
+        final JSONObject root = readOrCreateMetadata(context);
+        final JSONObject packObject = requirePackObject(root, identifier);
+        try {
+            packObject.put("name", name);
+            packObject.put("publisher", publisher);
+        } catch (JSONException e) {
+            throw new IOException("failed to update pack metadata", e);
         }
-        return updatedPack;
+        writeMetadata(context, root);
+        return reloadPack(context, identifier);
+    }
+
+    static synchronized StickerPack setTraySticker(@NonNull Context context, @NonNull String identifier, @NonNull String stickerFileName) throws IOException {
+        final JSONObject root = readOrCreateMetadata(context);
+        final JSONObject packObject = requirePackObject(root, identifier);
+        try {
+            packObject.put(TRAY_SOURCE_FIELD, stickerFileName);
+            packObject.put("image_data_version", String.valueOf(System.currentTimeMillis()));
+        } catch (JSONException e) {
+            throw new IOException("failed to update pack metadata", e);
+        }
+        updateTray(getPackDir(context, identifier), packObject);
+        writeMetadata(context, root);
+        return reloadPack(context, identifier);
     }
 
     static synchronized boolean deletePack(@NonNull Context context, @NonNull String identifier) throws IOException {
@@ -196,27 +215,36 @@ final class UserStickerPackStore {
         return true;
     }
 
-    static synchronized void hidePack(@NonNull Context context, @NonNull String identifier) {
-        final Set<String> hidden = getHiddenPacks(context);
-        hidden.add(identifier);
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putStringSet(PREF_HIDDEN_PACKS, hidden).apply();
-    }
-
-    static synchronized boolean isPackHidden(@NonNull Context context, @NonNull String identifier) {
-        return getHiddenPacks(context).contains(identifier);
-    }
-
     static File getStickerFile(@NonNull Context context, @NonNull String identifier, @NonNull String fileName) {
         return new File(getPackDir(context, identifier), fileName);
     }
 
-    static boolean isCustomPack(@NonNull Context context, @NonNull String identifier) {
-        for (StickerPack pack : loadStickerPacks(context)) {
-            if (identifier.equals(pack.identifier)) {
-                return true;
+    @NonNull
+    private static StickerPack reloadPack(@NonNull Context context, @NonNull String identifier) throws IOException {
+        final StickerPack pack = findPackByIdentifier(loadStickerPacks(context), identifier);
+        if (pack == null) {
+            throw new IOException("failed to reload pack");
+        }
+        return pack;
+    }
+
+    @NonNull
+    private static JSONObject requirePackObject(@NonNull JSONObject root, @NonNull String identifier) throws StickerException {
+        final JSONObject pack = findPackObject(root, identifier);
+        if (pack == null) {
+            throw new StickerException(R.string.pack_not_found_error);
+        }
+        return pack;
+    }
+
+    private static int findStickerIndex(@NonNull JSONArray stickers, @NonNull String fileName) {
+        for (int i = 0; i < stickers.length(); i++) {
+            final JSONObject sticker = stickers.optJSONObject(i);
+            if (sticker != null && fileName.equals(sticker.optString("image_file"))) {
+                return i;
             }
         }
-        return false;
+        return -1;
     }
 
     @Nullable
@@ -246,8 +274,9 @@ final class UserStickerPackStore {
 
     @NonNull
     private static JSONObject readOrCreateMetadata(@NonNull Context context) throws IOException {
-        final File metadataFile = getMetadataFile(context);
-        if (!metadataFile.exists()) {
+        final AtomicFile metadataFile = new AtomicFile(getMetadataFile(context));
+        final boolean interruptedWrite = new File(metadataFile.getBaseFile().getPath() + ".bak").exists();
+        if (!metadataFile.getBaseFile().exists() && !interruptedWrite) {
             final JSONObject root = new JSONObject();
             try {
                 root.put("android_play_store_link", "");
@@ -260,9 +289,8 @@ final class UserStickerPackStore {
             return root;
         }
 
-        try (FileInputStream inputStream = new FileInputStream(metadataFile)) {
-            final byte[] content = readAllBytes(inputStream);
-            return new JSONObject(new String(content, StandardCharsets.UTF_8));
+        try {
+            return new JSONObject(new String(metadataFile.readFully(), StandardCharsets.UTF_8));
         } catch (JSONException e) {
             throw new IOException("invalid metadata json", e);
         }
@@ -307,7 +335,6 @@ final class UserStickerPackStore {
             );
             pack.setAndroidPlayStoreLink(androidPlayStoreLink);
             pack.setIosAppStoreLink(iosAppStoreLink);
-            pack.setCustomPack(true);
             pack.setStickers(parseStickers(packJson.optJSONArray("stickers")));
             packs.add(pack);
         }
@@ -354,10 +381,17 @@ final class UserStickerPackStore {
         if (!rootDir.exists() && !rootDir.mkdirs()) {
             throw new IOException("failed to create root folder");
         }
-        final File metadataFile = getMetadataFile(context);
-        try (FileOutputStream outputStream = new FileOutputStream(metadataFile, false)) {
+        final AtomicFile metadataFile = new AtomicFile(getMetadataFile(context));
+        FileOutputStream outputStream = null;
+        try {
+            outputStream = metadataFile.startWrite();
             outputStream.write(root.toString().getBytes(StandardCharsets.UTF_8));
-            outputStream.flush();
+            metadataFile.finishWrite(outputStream);
+        } catch (IOException e) {
+            if (outputStream != null) {
+                metadataFile.failWrite(outputStream);
+            }
+            throw e;
         }
     }
 
@@ -368,8 +402,20 @@ final class UserStickerPackStore {
         writeBitmapAsPng(trayBitmap, new File(packDir, DEFAULT_TRAY_FILE));
     }
 
-    private static void createTrayFromSticker(@NonNull File packDir, @NonNull byte[] stickerWebp) throws IOException {
-        final Bitmap sticker = StickerImageProcessor.decodeBitmap(new ByteArrayInputStream(stickerWebp));
+    /**
+     * The tray shows the sticker the user picked or else the first one of the pack.
+     */
+    private static void updateTray(@NonNull File packDir, @NonNull JSONObject packObject) throws IOException {
+        final JSONArray stickers = packObject.optJSONArray("stickers");
+        if (stickers == null || stickers.length() == 0) {
+            createDefaultTrayIcon(packDir);
+            return;
+        }
+        String source = packObject.optString(TRAY_SOURCE_FIELD);
+        if (TextUtils.isEmpty(source) || findStickerIndex(stickers, source) < 0) {
+            source = stickers.optJSONObject(0).optString("image_file");
+        }
+        final Bitmap sticker = StickerImageProcessor.decodeFirstFrame(readBytes(new File(packDir, source)));
         if (sticker == null) {
             return;
         }
@@ -393,8 +439,10 @@ final class UserStickerPackStore {
         }
     }
 
-    private static byte[] readAllBytes(@NonNull FileInputStream inputStream) throws IOException {
-        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+    @NonNull
+    private static byte[] readBytes(@NonNull File file) throws IOException {
+        try (FileInputStream inputStream = new FileInputStream(file);
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             final byte[] buffer = new byte[4096];
             int read;
             while ((read = inputStream.read(buffer)) != -1) {
@@ -404,20 +452,16 @@ final class UserStickerPackStore {
         }
     }
 
+    /**
+     * The name of the pack is kept out of the identifier, which is also the name of its folder.
+     */
     @NonNull
-    private static String generateIdentifier(@NonNull String name, @NonNull JSONArray existingPacks) {
-        String base = name.toLowerCase(Locale.US).replaceAll("[^a-z0-9._\\- ]", "").trim().replace(" ", "_");
-        if (TextUtils.isEmpty(base)) {
-            base = "pack";
-        }
-        if (base.length() > 100) {
-            base = base.substring(0, 100);
-        }
-        String candidate = base;
-        int suffix = 1;
+    private static String generateIdentifier(@NonNull JSONArray existingPacks) {
+        long suffix = System.currentTimeMillis();
+        String candidate = "pack_" + suffix;
         while (containsIdentifier(existingPacks, candidate)) {
-            candidate = base + "_" + suffix;
             suffix++;
+            candidate = "pack_" + suffix;
         }
         return candidate;
     }
@@ -463,10 +507,10 @@ final class UserStickerPackStore {
         file.delete();
     }
 
-    @NonNull
-    private static Set<String> getHiddenPacks(@NonNull Context context) {
-        final Set<String> stored = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .getStringSet(PREF_HIDDEN_PACKS, new HashSet<>());
-        return stored == null ? new HashSet<>() : new HashSet<>(stored);
+    private static void deleteFile(@NonNull File file) {
+        if (file.exists()) {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
     }
 }

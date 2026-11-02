@@ -24,6 +24,8 @@ class StickerPackListItemViewHolder extends RecyclerView.ViewHolder {
     final ImageView addButton;
     final ImageView animatedStickerPackIndicator;
     final LinearLayout imageRowView;
+    final ImageView trayView;
+    final TextView statusView;
 
     StickerPackListItemViewHolder(final View itemView) {
         super(itemView);
@@ -33,6 +35,8 @@ class StickerPackListItemViewHolder extends RecyclerView.ViewHolder {
         filesizeView = itemView.findViewById(R.id.sticker_pack_filesize);
         addButton = itemView.findViewById(R.id.add_button_on_list);
         imageRowView = itemView.findViewById(R.id.sticker_packs_list_item_image_list);
+        trayView = itemView.findViewById(R.id.sticker_pack_tray);
+        statusView = itemView.findViewById(R.id.sticker_pack_status);
         animatedStickerPackIndicator = itemView.findViewById(R.id.sticker_pack_animation_indicator);
     }
 }

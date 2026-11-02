@@ -2,12 +2,13 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:id="@+id/action_info"
-        android:icon="@drawable/sticker_3rdparty_info"
-        android:title="@string/more_info_button"
-        app:showAsAction="always" />
+        android:id="@+id/action_edit_pack"
+        android:icon="@drawable/ic_edit"
+        android:title="@string/edit_pack_title"
+        app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_delete_pack"
+        android:icon="@drawable/ic_delete"
         android:title="@string/delete_pack_title"
         app:showAsAction="never" />
 </menu>

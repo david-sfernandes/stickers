@@ -41,17 +41,15 @@
     <!-- Content description indicating the sticker pack is an animated pack -->
     <string name="sticker_pack_animation_indicator" tools:ignore="MissingTranslation">Animated sticker pack</string>
     <!-- text we display at the end of sticker pack details page showing that users can tap sticker to see bigger version -->
-    <string name="sticker_pack_details_tap_to_preview" tools:ignore="MissingTranslation">Tap to preview sticker</string>
-    <string name="add_sticker_to_pack">Add sticker to pack</string>
-    <string name="create_pack_title">Create pack</string>
+    <string name="sticker_pack_details_tap_to_preview">Tap to view • Hold to edit or remove</string>
+    <string name="add_sticker_to_pack">Add sticker</string>
+    <string name="create_pack_title">New pack</string>
     <string name="create_pack_confirm">Create</string>
-    <string name="create_pack_validation">Fill pack name and publisher.</string>
-    <string name="create_pack_success">Pack created.</string>
-    <string name="create_pack_error">Could not create pack: %1$s</string>
+    <string name="create_pack_error">Could not create the pack.</string>
     <string name="pack_name_hint">Pack name</string>
     <string name="pack_publisher_hint">Publisher</string>
     <string name="pack_not_found_error">Sticker pack not found.</string>
-    <string name="generic_validation_error">Unable to validate this pack.</string>
+    <string name="generic_validation_error">This pack does not meet the WhatsApp rules.</string>
     <string name="image_picker_not_available">Could not open image picker.</string>
     <string name="delete_pack_title">Delete pack</string>
     <string name="delete_pack_message">This will permanently remove the pack and all stickers in it.</string>
@@ -60,4 +58,47 @@
     <string name="remove_sticker_title">Remove sticker</string>
     <string name="remove_sticker_message">Do you want to remove this sticker from the pack?</string>
     <string name="remove_sticker_confirm">Remove</string>
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="error_file_too_large">This file is too large to be used as a sticker.</string>
+    <string name="error_cannot_read_image">This file could not be opened as an image.</string>
+    <string name="error_image_too_large">This image could not be compressed to the size WhatsApp allows.</string>
+    <string name="error_gif_too_large">This animation is too long or too detailed to fit the 500 KB WhatsApp allows, even at reduced quality. Crop a smaller area or use only its first frame.</string>
+    <string name="error_sticker_not_found">Sticker not found.</string>
+    <string name="error_pack_full">This pack already has 30 stickers, the WhatsApp limit.</string>
+    <string name="error_pack_type_mismatch">WhatsApp does not allow static and animated stickers in the same pack.</string>
+    <string name="pack_summary">%1$d/%2$d stickers • %3$s</string>
+    <string name="pack_is_full">Pack is full</string>
+    <string name="empty_packs_title">No sticker packs yet</string>
+    <string name="empty_packs_message">Create your first pack and fill it with your own images and GIFs.</string>
+    <string name="empty_stickers_message">Add stickers from your images and GIFs. WhatsApp requires at least 3 per pack.</string>
+    <string name="form_required_field">Required field</string>
+    <string name="edit_pack_title">Edit pack</string>
+    <string name="edit_pack_confirm">Save</string>
+    <string name="sticker_action_edit">Edit sticker</string>
+    <string name="sticker_action_set_tray">Use as pack icon</string>
+    <string name="editor_crop_title">Crop</string>
+    <string name="editor_text_title">Text and emojis</string>
+    <string name="editor_rotate">Rotate</string>
+    <string name="editor_flip">Mirror</string>
+    <string name="editor_reset_crop">Reset</string>
+    <string name="editor_next">Next</string>
+    <string name="editor_back_to_crop">Back</string>
+    <string name="editor_save">Save sticker</string>
+    <string name="editor_add_text">Add text</string>
+    <string name="editor_edit_text">Edit text</string>
+    <string name="editor_text_hint">Text</string>
+    <string name="editor_text_size">Size</string>
+    <string name="editor_text_color">Text color</string>
+    <string name="editor_emoji_hint">Emojis (up to 3)</string>
+    <string name="editor_loading">Opening…</string>
+    <string name="editor_saving">Creating sticker…</string>
+    <string name="editor_notice_gif">Animated: the crop and the texts apply to all frames.</string>
+    <string name="editor_notice_still_in_animated_pack">This pack is animated, so this image will be saved as an animation with no movement.</string>
+    <string name="gif_in_static_pack_title">This pack has static stickers</string>
+    <string name="gif_in_static_pack_message">WhatsApp does not allow mixing static and animated stickers in a pack. You can use only the first frame of this animation here, or cancel and add it to another pack.</string>
+    <string name="gif_use_first_frame">Use first frame</string>
+    <plurals name="pack_missing_stickers">
+        <item quantity="one">Add %d more sticker</item>
+        <item quantity="other">Add %d more stickers</item>
+    </plurals>
 </resources>

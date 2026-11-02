@@ -13,14 +13,15 @@ import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.DialogFragment;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 public abstract class BaseActivity extends AppCompatActivity {
     @Override
     public boolean onSupportNavigateUp() {
-        onBackPressed();
+        getOnBackPressedDispatcher().onBackPressed();
         return true;
     }
 
@@ -43,7 +44,7 @@ public abstract class BaseActivity extends AppCompatActivity {
             @StringRes final int title = getArguments().getInt(ARG_TITLE_ID);
             String message = getArguments().getString(ARG_MESSAGE);
 
-            AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(getActivity())
+            MaterialAlertDialogBuilder dialogBuilder = new MaterialAlertDialogBuilder(requireContext())
                     .setMessage(message)
                     .setCancelable(true)
                     .setPositiveButton(android.R.string.ok, (dialog, which) -> dismiss());

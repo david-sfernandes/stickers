@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingBottom="16dp">
+
+    <TextView
+        android:id="@+id/action_edit_sticker"
+        style="@style/ActionSheetRow"
+        android:drawableStart="@drawable/ic_edit"
+        android:text="@string/sticker_action_edit" />
+
+    <TextView
+        android:id="@+id/action_set_tray"
+        style="@style/ActionSheetRow"
+        android:drawableStart="@drawable/ic_star"
+        android:text="@string/sticker_action_set_tray" />
+
+    <TextView
+        android:id="@+id/action_remove_sticker"
+        style="@style/ActionSheetRow"
+        android:drawableStart="@drawable/ic_delete"
+        android:text="@string/remove_sticker_title" />
+</LinearLayout>

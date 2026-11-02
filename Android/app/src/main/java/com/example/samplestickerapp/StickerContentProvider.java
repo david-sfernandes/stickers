@@ -14,7 +14,6 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.UriMatcher;
 import android.content.res.AssetFileDescriptor;
-import android.content.res.AssetManager;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
@@ -27,7 +26,6 @@ import androidx.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -55,7 +53,6 @@ public class StickerContentProvider extends ContentProvider {
     public static final String STICKER_FILE_NAME_IN_QUERY = "sticker_file_name";
     public static final String STICKER_FILE_EMOJI_IN_QUERY = "sticker_emoji";
     public static final String STICKER_FILE_ACCESSIBILITY_TEXT_IN_QUERY = "sticker_accessibility_text";
-    private static final String CONTENT_FILE_NAME = "contents.json";
 
     public static final Uri AUTHORITY_URI = new Uri.Builder().scheme(ContentResolver.SCHEME_CONTENT).authority(BuildConfig.CONTENT_PROVIDER_AUTHORITY).appendPath(StickerContentProvider.METADATA).build();
 
@@ -140,25 +137,8 @@ public class StickerContentProvider extends ContentProvider {
         }
     }
 
-    private synchronized List<StickerPack> readAssetContentFile(@NonNull Context context) {
-        try (InputStream contentsInputStream = context.getAssets().open(CONTENT_FILE_NAME)) {
-            return ContentFileParser.parseStickerPacks(contentsInputStream);
-        } catch (IOException | IllegalStateException e) {
-            throw new RuntimeException(CONTENT_FILE_NAME + " file has some issues: " + e.getMessage(), e);
-        }
-    }
-
     private List<StickerPack> getStickerPackList() {
-        final Context context = Objects.requireNonNull(getContext());
-        final List<StickerPack> packs = new ArrayList<>(readAssetContentFile(context));
-        packs.addAll(UserStickerPackStore.loadStickerPacks(context));
-        final List<StickerPack> visiblePacks = new ArrayList<>();
-        for (StickerPack pack : packs) {
-            if (!UserStickerPackStore.isPackHidden(context, pack.identifier)) {
-                visiblePacks.add(pack);
-            }
-        }
-        return visiblePacks;
+        return UserStickerPackStore.loadStickerPacks(Objects.requireNonNull(getContext()));
     }
 
     private Cursor getPackForAllStickerPacks(@NonNull Uri uri) {
@@ -230,7 +210,6 @@ public class StickerContentProvider extends ContentProvider {
     }
 
     private AssetFileDescriptor getImageAsset(Uri uri) throws IllegalArgumentException {
-        AssetManager am = Objects.requireNonNull(getContext()).getAssets();
         final List<String> pathSegments = uri.getPathSegments();
         if (pathSegments.size() != 3) {
             throw new IllegalArgumentException("path segments should be 3, uri is: " + uri);
@@ -247,11 +226,11 @@ public class StickerContentProvider extends ContentProvider {
         for (StickerPack stickerPack : getStickerPackList()) {
             if (identifier.equals(stickerPack.identifier)) {
                 if (fileName.equals(stickerPack.trayImageFile)) {
-                    return fetchFile(uri, am, fileName, identifier);
+                    return fetchFile(uri, fileName, identifier);
                 } else {
                     for (Sticker sticker : stickerPack.getStickers()) {
                         if (fileName.equals(sticker.imageFileName)) {
-                            return fetchFile(uri, am, fileName, identifier);
+                            return fetchFile(uri, fileName, identifier);
                         }
                     }
                 }
@@ -260,24 +239,16 @@ public class StickerContentProvider extends ContentProvider {
         return null;
     }
 
-    private AssetFileDescriptor fetchFile(@NonNull Uri uri, @NonNull AssetManager am, @NonNull String fileName, @NonNull String identifier) {
+    private AssetFileDescriptor fetchFile(@NonNull Uri uri, @NonNull String fileName, @NonNull String identifier) {
         final Context context = Objects.requireNonNull(getContext());
-        if (UserStickerPackStore.isCustomPack(context, identifier)) {
-            final File file = UserStickerPackStore.getStickerFile(context, identifier, fileName);
-            if (!file.exists()) {
-                return null;
-            }
-            try {
-                return new AssetFileDescriptor(ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY), 0, AssetFileDescriptor.UNKNOWN_LENGTH);
-            } catch (IOException e) {
-                Log.e(context.getPackageName(), "IOException when getting custom asset file, uri:" + uri, e);
-                return null;
-            }
+        final File file = UserStickerPackStore.getStickerFile(context, identifier, fileName);
+        if (!file.exists()) {
+            return null;
         }
         try {
-            return am.openFd(identifier + "/" + fileName);
+            return new AssetFileDescriptor(ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY), 0, AssetFileDescriptor.UNKNOWN_LENGTH);
         } catch (IOException e) {
-            Log.e(context.getPackageName(), "IOException when getting asset file, uri:" + uri, e);
+            Log.e(context.getPackageName(), "IOException when getting sticker file, uri:" + uri, e);
             return null;
         }
     }

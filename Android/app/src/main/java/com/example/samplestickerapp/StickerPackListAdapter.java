@@ -10,14 +10,11 @@ package com.example.samplestickerapp;
 
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.drawable.Drawable;
-import android.os.Build;
 import android.text.format.Formatter;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
@@ -53,8 +50,12 @@ public class StickerPackListAdapter extends RecyclerView.Adapter<StickerPackList
     public void onBindViewHolder(@NonNull final StickerPackListItemViewHolder viewHolder, final int index) {
         StickerPack pack = stickerPacks.get(index);
         final Context context = viewHolder.publisherView.getContext();
+        final int stickerCount = pack.getStickers().size();
         viewHolder.publisherView.setText(pack.publisher);
-        viewHolder.filesizeView.setText(Formatter.formatShortFileSize(context, pack.getTotalSize()));
+        viewHolder.filesizeView.setText(context.getString(R.string.pack_summary, stickerCount, UserStickerPackStore.MAX_STICKERS_PER_PACK, Formatter.formatShortFileSize(context, pack.getTotalSize())));
+        // The file name never changes, so the view would keep the old image without the reset.
+        viewHolder.trayView.setImageURI(null);
+        viewHolder.trayView.setImageURI(StickerPackLoader.getStickerAssetUri(pack.identifier, pack.trayImageFile));
 
         viewHolder.titleView.setText(pack.name);
         viewHolder.container.setOnClickListener(view -> {
@@ -77,30 +78,33 @@ public class StickerPackListAdapter extends RecyclerView.Adapter<StickerPackList
             }
             viewHolder.imageRowView.addView(rowImage);
         }
-        setAddButtonAppearance(viewHolder.addButton, pack);
+        setAddButtonAppearance(viewHolder, pack);
         viewHolder.animatedStickerPackIndicator.setVisibility(pack.animatedStickerPack ? View.VISIBLE : View.GONE);
     }
 
-    private void setAddButtonAppearance(ImageView addButton, StickerPack pack) {
-        if (pack.getIsWhitelisted()) {
-            addButton.setImageResource(R.drawable.sticker_3rdparty_added);
-            addButton.setClickable(false);
-            addButton.setOnClickListener(null);
-            setBackground(addButton, null);
+    private void setAddButtonAppearance(StickerPackListItemViewHolder viewHolder, StickerPack pack) {
+        final Context context = viewHolder.statusView.getContext();
+        final int missing = UserStickerPackStore.MIN_STICKERS_PER_PACK - pack.getStickers().size();
+        if (missing > 0) {
+            viewHolder.addButton.setVisibility(View.GONE);
+            viewHolder.statusView.setVisibility(View.VISIBLE);
+            viewHolder.statusView.setText(context.getResources().getQuantityString(R.plurals.pack_missing_stickers, missing, missing));
+        } else if (pack.getIsWhitelisted()) {
+            viewHolder.addButton.setVisibility(View.VISIBLE);
+            viewHolder.addButton.setImageResource(R.drawable.ic_check);
+            viewHolder.addButton.setClickable(false);
+            viewHolder.addButton.setOnClickListener(null);
+            viewHolder.addButton.setBackground(null);
+            viewHolder.statusView.setVisibility(View.VISIBLE);
+            viewHolder.statusView.setText(R.string.details_pack_already_added);
         } else {
-            addButton.setImageResource(R.drawable.sticker_3rdparty_add);
-            addButton.setOnClickListener(v -> onAddButtonClickedListener.onAddButtonClicked(pack));
+            viewHolder.addButton.setVisibility(View.VISIBLE);
+            viewHolder.addButton.setImageResource(R.drawable.ic_add);
+            viewHolder.addButton.setOnClickListener(v -> onAddButtonClickedListener.onAddButtonClicked(pack));
             TypedValue outValue = new TypedValue();
-            addButton.getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackground, outValue, true);
-            addButton.setBackgroundResource(outValue.resourceId);
-        }
-    }
-
-    private void setBackground(View view, Drawable background) {
-        if (Build.VERSION.SDK_INT >= 16) {
-            view.setBackground(background);
-        } else {
-            view.setBackgroundDrawable(background);
+            context.getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, outValue, true);
+            viewHolder.addButton.setBackgroundResource(outValue.resourceId);
+            viewHolder.statusView.setVisibility(View.GONE);
         }
     }
 

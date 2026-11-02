@@ -1,10 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright (c) Meta Platforms, Inc. and affiliates.
+  ~ All rights reserved.
+  ~
+  ~ This source code is licensed under the BSD-style license found in the
+  ~ LICENSE file in the root directory of this source tree.
+  -->
 <resources>
-    <color name="colorPrimary">@android:color/transparent</color>
-    <color name="colorPrimaryDark">#BABABA</color>
-    <color name="colorAccent">#128C7E</color>
-    <color name="inactiveAddButtonColor">#B3B3B3</color>
-    <color name="infoPageBackgroundColor">#EBEBEB</color>
-    <color name="actionBarArrowColor">@color/colorAccent</color>
-    <color name="animatedStickerIndicator">#66000000</color>
+    <color name="colorPrimary">#0B7A6E</color>
+    <color name="colorOnPrimary">#FFFFFF</color>
+    <color name="colorPrimaryContainer">#B6F2E6</color>
+    <color name="colorOnPrimaryContainer">#00201B</color>
+    <color name="colorSecondary">#4A635E</color>
+    <color name="colorOnSecondary">#FFFFFF</color>
+    <color name="colorSecondaryContainer">#CCE8E1</color>
+    <color name="colorOnSecondaryContainer">#06201B</color>
+    <color name="colorSurface">#F6FBF8</color>
+    <color name="colorOnSurface">#171D1B</color>
+    <color name="colorSurfaceVariant">#DAE5E1</color>
+    <color name="colorOnSurfaceVariant">#3F4947</color>
+    <color name="colorSurfaceContainerLow">#F0F5F2</color>
+    <color name="colorSurfaceContainer">#EAEFEC</color>
+    <color name="colorSurfaceContainerHigh">#E4EAE7</color>
+    <color name="colorOutline">#6F7977</color>
+    <color name="colorOutlineVariant">#BEC9C5</color>
+    <color name="checkerboardLight">#FFFFFF</color>
+    <color name="checkerboardDark">#DDDDDD</color>
+    <color name="scrim">#99000000</color>
 </resources>

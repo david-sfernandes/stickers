@@ -10,6 +10,7 @@ package com.example.samplestickerapp;
 
 import android.net.Uri;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -28,9 +29,8 @@ public class StickerPreviewAdapter extends RecyclerView.Adapter<StickerPreviewVi
     @NonNull
     private StickerPack stickerPack;
 
-    private final int cellSize;
+    private int cellHeight;
     private final int cellLimit;
-    private final int cellPadding;
     private final int errorResource;
     private final SimpleDraweeView expandedStickerPreview;
     private final OnStickerLongPressListener onStickerLongPressListener;
@@ -44,19 +44,21 @@ public class StickerPreviewAdapter extends RecyclerView.Adapter<StickerPreviewVi
     StickerPreviewAdapter(
             @NonNull final LayoutInflater layoutInflater,
             final int errorResource,
-            final int cellSize,
-            final int cellPadding,
+            final int cellHeight,
             @NonNull final StickerPack stickerPack,
             final SimpleDraweeView expandedStickerView,
             final OnStickerLongPressListener onStickerLongPressListener) {
-        this.cellSize = cellSize;
-        this.cellPadding = cellPadding;
+        this.cellHeight = cellHeight;
         this.cellLimit = 0;
         this.layoutInflater = layoutInflater;
         this.errorResource = errorResource;
         this.stickerPack = stickerPack;
         this.expandedStickerPreview = expandedStickerView;
         this.onStickerLongPressListener = onStickerLongPressListener;
+    }
+
+    void setCellHeight(int cellHeight) {
+        this.cellHeight = cellHeight;
     }
 
     void setStickerPack(@NonNull StickerPack stickerPack) {
@@ -67,24 +69,21 @@ public class StickerPreviewAdapter extends RecyclerView.Adapter<StickerPreviewVi
     @Override
     public StickerPreviewViewHolder onCreateViewHolder(@NonNull final ViewGroup viewGroup, final int i) {
         View itemView = layoutInflater.inflate(R.layout.sticker_image_item, viewGroup, false);
-        StickerPreviewViewHolder vh = new StickerPreviewViewHolder(itemView);
-
-        ViewGroup.LayoutParams layoutParams = vh.stickerPreviewView.getLayoutParams();
-        layoutParams.height = cellSize;
-        layoutParams.width = cellSize;
-        vh.stickerPreviewView.setLayoutParams(layoutParams);
-        vh.stickerPreviewView.setPadding(cellPadding, cellPadding, cellPadding, cellPadding);
-
-        return vh;
+        return new StickerPreviewViewHolder(itemView);
     }
 
     @Override
     public void onBindViewHolder(@NonNull final StickerPreviewViewHolder stickerPreviewViewHolder, final int i) {
+        final ViewGroup.LayoutParams layoutParams = stickerPreviewViewHolder.stickerPreviewView.getLayoutParams();
+        if (layoutParams.height != cellHeight) {
+            layoutParams.height = cellHeight;
+            stickerPreviewViewHolder.stickerPreviewView.setLayoutParams(layoutParams);
+        }
         stickerPreviewViewHolder.stickerPreviewView.setImageResource(errorResource);
         stickerPreviewViewHolder.stickerPreviewView.setImageURI(StickerPackLoader.getStickerAssetUri(stickerPack.identifier, stickerPack.getStickers().get(i).imageFileName));
         stickerPreviewViewHolder.stickerPreviewView.setOnClickListener(v -> expandPreview(i, stickerPreviewViewHolder.stickerPreviewView));
         stickerPreviewViewHolder.stickerPreviewView.setOnLongClickListener(v -> {
-            if (onStickerLongPressListener == null || !stickerPack.isCustomPack()) {
+            if (onStickerLongPressListener == null) {
                 return false;
             }
             onStickerLongPressListener.onStickerLongPress(stickerPack.getStickers().get(i));
@@ -97,12 +96,14 @@ public class StickerPreviewAdapter extends RecyclerView.Adapter<StickerPreviewVi
         super.onAttachedToRecyclerView(recyclerView);
         this.recyclerView = recyclerView;
         recyclerView.addOnScrollListener(hideExpandedViewScrollListener);
+        recyclerView.addOnItemTouchListener(hideExpandedViewTouchListener);
     }
 
     @Override
     public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
         super.onDetachedFromRecyclerView(recyclerView);
         recyclerView.removeOnScrollListener(hideExpandedViewScrollListener);
+        recyclerView.removeOnItemTouchListener(hideExpandedViewTouchListener);
         this.recyclerView = null;
     }
 
@@ -114,6 +115,19 @@ public class StickerPreviewAdapter extends RecyclerView.Adapter<StickerPreviewVi
                     if (dx != 0 || dy != 0) {
                         hideExpandedStickerPreview();
                     }
+                }
+            };
+
+    private final RecyclerView.OnItemTouchListener hideExpandedViewTouchListener =
+            new RecyclerView.SimpleOnItemTouchListener() {
+                @Override
+                public boolean onInterceptTouchEvent(@NonNull RecyclerView recyclerView, @NonNull MotionEvent event) {
+                    // A touch outside of the open preview only closes it.
+                    if (event.getActionMasked() == MotionEvent.ACTION_DOWN && isStickerPreviewExpanded()) {
+                        hideExpandedStickerPreview();
+                        return true;
+                    }
+                    return false;
                 }
             };
 
@@ -174,11 +188,6 @@ public class StickerPreviewAdapter extends RecyclerView.Adapter<StickerPreviewVi
     }
 
     private void expandPreview(int position, View clickedStickerPreview) {
-        if (isStickerPreviewExpanded()) {
-            hideExpandedStickerPreview();
-            return;
-        }
-
         this.clickedStickerPreview = clickedStickerPreview;
         if (expandedStickerPreview != null) {
             positionExpandedStickerPreview(position);
